@@ -1,9 +1,44 @@
-# Byte-compiled / optimized / DLL files
+### OSX ###
+.DS_Store
+
+
+### Django Rest Framework ###
+MANIFEST
+.project
+.pydevproject
+.settings
+.cache
+.coverage
+.tox
+.idea/*
+*.pot
+
+*.db
+coverage.xml
+env
+docs/build
+html
+htmlcov
+build/*
+dist/*
+xmlrunner/*
+
+
+### IDE/Code Editors ###
+*~
+\#*\#
+*.swp
+*.swo
+.#*
+.idea/
+.vscode/
+
+
+### Python ###
 __pycache__/
 *.py[cod]
-
-# C extensions
-*.so
+*$py.class
+venv/
 
 # Distribution / packaging
 .Python
@@ -13,7 +48,6 @@ develop-eggs/
 dist/
 downloads/
 eggs/
-.eggs/
 lib/
 lib64/
 parts/
@@ -23,15 +57,6 @@ var/
 .installed.cfg
 *.egg
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
 
 # Unit test / coverage reports
 htmlcov/
@@ -41,25 +66,11 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
-*,cover
+*.cover
+.hypothesis/
 
-# Translations
-*.mo
-*.pot
+# Local settings
+.env
 
-# Django stuff:
-*.log
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
-# Notebooks
-*.ipynb_checkpoints/
-*-checkpoint.ipynb
-.ipynb_checkpoints
-
-.idea/
-
+# Kubeflow files
+*.tar.gz
