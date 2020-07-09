@@ -250,6 +250,7 @@ class StreamHist(object):
             count = b["count"]
             value = b["mean"]
             hist.bins.add(Bin(value, count))
+            hist.update_total(count)
         return hist
 
     def __len__(self):
