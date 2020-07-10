@@ -40,6 +40,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import sys
+from math import sqrt
 from bisect import bisect_left
 
 from sortedcontainers import SortedListWithKey
@@ -188,6 +189,13 @@ class StreamHist(object):
             s += (b.count * (b.value - m)**2)
         return s / float(self.total)
 
+    def stdDev(self):
+        """Returns standard deviation of the distribution"""
+        var = self.var()
+        if not var:
+            return None
+        return sqrt(var)
+
     def min(self):
         """Return the minimum value in the histogram."""
         return self._min
@@ -232,7 +240,13 @@ class StreamHist(object):
                     maxbins=self.maxbins,
                     weighted=self.weighted,
                     freeze=self.freeze)
-        return dict(bins=bins, info=info)
+        analysis = dict(mean=self.mean(),
+                        maximum=self.max(),
+                        minimum=self.min(),
+                        stdDev=self.stdDev(),
+                        countMissing=self.missing_count,
+                        countTotal=self.total)
+        return dict(bins=bins, info=info, analysis=analysis)
 
     @classmethod
     def from_dict(cls, d):
