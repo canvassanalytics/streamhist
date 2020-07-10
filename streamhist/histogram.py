@@ -250,6 +250,7 @@ class StreamHist(object):
         """
         info = d["info"]
         bins = d["bins"]
+        analysis = d["analysis"] if "analysis" in d else None
         hist = cls(info["maxbins"], info["weighted"], info["freeze"])
         hist.missing_count = info["missing_count"]
         for b in bins:
@@ -257,6 +258,7 @@ class StreamHist(object):
             value = b["mean"]
             hist.bins.add(Bin(value, count))
             hist.update_total(count)
+        _update_bounds(hist, analysis)
         return hist
 
     def __len__(self):
@@ -496,6 +498,15 @@ def _find_z(a, b, c):
             break
     return result_root
 
+
+def _update_bounds(hist, analysis):
+    if analysis:
+        hist._min = analysis["minimum"]
+        hist._max = analysis["maximum"]
+    else:
+        if len(hist.bins):
+            hist._min = hist.bins[0]
+            hist._max = hist.bins[-1]
 
 class Bin(object):
     """Histogram bin object.
