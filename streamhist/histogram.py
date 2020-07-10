@@ -41,7 +41,7 @@ from __future__ import print_function
 
 import sys
 from math import sqrt
-from bisect import bisect_left
+from bisect import bisect_left, bisect_right
 
 from sortedcontainers import SortedListWithKey
 from .utils import (next_after, bin_diff, accumulate, linspace,
