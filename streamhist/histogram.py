@@ -251,8 +251,6 @@ class StreamHist(object):
             value = b["mean"]
             hist.bins.add(Bin(value, count))
             hist.update_total(count)
-            print("Added bin to histogram")
-            print("Updating total count: ", hist.total)
         return hist
 
     def __len__(self):
@@ -261,10 +259,7 @@ class StreamHist(object):
 
     def update_total(self, size=1):
         """Update the internally-stored total number of points."""
-        print("Current size: ", self.total)
-        print("Size update ", size)
         self.total += size
-        print("Updated size: ", self.total)
 
     def __add__(self, other):
         """Merge two StreamHist objects into one."""
