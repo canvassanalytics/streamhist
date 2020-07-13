@@ -39,12 +39,13 @@ References
 from __future__ import absolute_import
 from __future__ import print_function
 
+import math
 import sys
-from bisect import bisect_left
+from bisect import bisect_left, bisect_right
 
 from sortedcontainers import SortedListWithKey
 from .utils import (next_after, bin_diff, accumulate, linspace,
-                    iterator_types, argmin, bin_sums, roots)
+                    iterator_types, argmin, roots)
 
 _all__ = ["StreamHist", "Bin"]
 
@@ -107,10 +108,8 @@ class StreamHist(object):
         >>> h = StreamHist().update([1, 2, 3])
         """
         self.update_total(count)
-        if self._min is None or self._min > n:
-            self._min = n
-        if self._max is None or self._max < n:
-            self._max = n
+        self._update_min(n)
+        self._update_max(n)
         b = Bin(value=n, count=count)
         if b in self.bins:
             index = self.bins.index(b)
@@ -159,15 +158,7 @@ class StreamHist(object):
         """
         if self.total == 0:
             return None
-        if len(self.bins) >= self.maxbins:
-            # Return the approximate median
-            return self.quantiles(0.5)[0]
-        else:
-            # Return the 'exact' median when possible
-            mid = int(self.total/2)
-            if self.total % 2 == 0:
-                return (self.bins[mid-1] + self.bins[mid]).value
-            return self.bins[mid].value
+        return self.quantiles(0.5)[0]
 
     def mean(self):
         """Return the sample mean of the distribution."""
@@ -188,13 +179,28 @@ class StreamHist(object):
             s += (b.count * (b.value - m)**2)
         return s / float(self.total)
 
+    def stdDev(self):
+        """Returns standard deviation of the distribution"""
+        var = self.var()
+        if not var:
+            return None
+        return math.sqrt(var)
+
     def min(self):
         """Return the minimum value in the histogram."""
         return self._min
+    
+    def _update_min(self, n):
+        if self._min is None or self._min > n:
+            self._min = n
 
     def max(self):
         """Return the maximum value in the histogram."""
         return self._max
+
+    def _update_max(self, n):
+        if self._max is None or self._max < n:
+            self._max = n
 
     def trim(self):
         """Merge adjacent bins to decrease bin count to the maximum value.
@@ -232,7 +238,13 @@ class StreamHist(object):
                     maxbins=self.maxbins,
                     weighted=self.weighted,
                     freeze=self.freeze)
-        return dict(bins=bins, info=info)
+        analysis = dict(mean=self.mean(),
+                        maximum=self.max(),
+                        minimum=self.min(),
+                        stdDev=self.stdDev(),
+                        countMissing=self.missing_count,
+                        countTotal=self.total)
+        return dict(bins=bins, info=info, analysis=analysis)
 
     @classmethod
     def from_dict(cls, d):
@@ -244,12 +256,15 @@ class StreamHist(object):
         """
         info = d["info"]
         bins = d["bins"]
+        analysis = d["analysis"] if "analysis" in d else None
         hist = cls(info["maxbins"], info["weighted"], info["freeze"])
         hist.missing_count = info["missing_count"]
         for b in bins:
             count = b["count"]
             value = b["mean"]
             hist.bins.add(Bin(value, count))
+            hist.update_total(count)
+        _update_bounds(hist, analysis)
         return hist
 
     def __len__(self):
@@ -378,35 +393,53 @@ class StreamHist(object):
             dd = _compute_density(p, bin_i, bin_i1)
         return dd
 
+    def _quantile(self, sums, q):
+        if q <= 0:
+            return self._min
+        if q >= 1:
+            return self._max
+        bins = self.bins
+        target_sum = q * (self.total - 1) + 1
+        i = bisect_right(sums, target_sum) - 1
+        left = bins[i] if i >= 0 else (self._min, 0)
+        right = bins[i+1] if i+1 < len(bins) else (self._max, 0)
+        l0, r0 = left[0], right[0]
+        l1, r1 = left[1], right[1]
+        s = target_sum - (sums[i] if i >= 0 else 1)
+        if l1 <= 1 and r1 <= 1:
+            # We have exact info at this quantile.  Match linear interpolation
+            # strategy of numpy.quantile().
+            b = l0 + (r0 - l0) * s / r1 if r1 > 0 else l0
+        else:
+            if r1 == 1:
+                # For exact bin on RHS, compensate for trapezoid interpolation using
+                # only half of count.
+                r1 = 2
+            if l1 == r1:
+                bp_ratio = s / l1
+            else:
+                bp_ratio = (l1 - (l1 ** 2 - 2 * s * (l1 - r1)) ** .5) / (l1 - r1)
+                assert bp_ratio.imag == 0
+            b = bp_ratio * (r0 - l0) + l0
+        return b
+
     def quantiles(self, *quantiles):
         """Return the estimated data value for the given quantile(s).
 
         The requested quantile(s) must be between 0 and 1. Note that even if a
         single quantile is input, a list is always returned.
+
+        O(maxbins) complexity
         """
-        temp = bin_sums(self.bins)
-        sums = list(accumulate(temp))
-        result = []
-        for x in quantiles:
-            target_sum = x * self.total
-            if x <= 0:
-                qq = self._min
-            elif x >= self.total:
-                qq = self._max
-            else:
-                index = bisect_left(sums, target_sum)
-                bin_i = self.bins[index]
-                if index < len(sums):
-                    bin_i1 = self.bins[index+1]
-                else:
-                    bin_i1 = self.bins[index]
-                if index:
-                    prev_sum = sums[index-1]
-                else:
-                    prev_sum = 0.0
-                qq = _compute_quantile(target_sum, bin_i, bin_i1, prev_sum+1)
-            result.append(qq)
-        return result
+        # Deviation from Ben-Haim sum strategy:
+        #   * treat count 1 bins as "exact" rather than dividing the count at
+        #       the point
+        #   * for neighboring exact bins, use simple linear interpolation
+        #       matching numpy.quantile()
+        bins = self.bins
+        sums = [sum_ - (bin_.count/2 if bin_.count > 1 else 0) for sum_, bin_ in \
+                zip(accumulate(bin.count for bin in bins), bins)]
+        return list(self._quantile(sums, q_item) for q_item in quantiles)
 
     def floor(self, p):
         hbin = Bin(p, 0)
@@ -449,20 +482,6 @@ def _compute_density(p, bin_i, bin_i1):
     return (bin_i.count + inner) * (1.0 / (bin_i1.value - bin_i.value))
 
 
-def _compute_quantile(x, bin_i, bin_i1, prev_sum):
-    d = x - prev_sum
-    a = bin_i1.count - bin_i.count
-    if a == 0:
-        offset = d / ((bin_i.count + bin_i1.count) / 2.0)
-        u = bin_i.value + (offset * (bin_i1.value - bin_i.value))
-    else:
-        b = 2.0 * bin_i.count
-        c = -2.0 * d
-        z = _find_z(a, b, c)
-        u = (bin_i.value + (bin_i1.value - bin_i.value) * z)
-    return u
-
-
 def _compute_sum(x, bin_i, bin_i1, prev_sum):
     b_diff = x - bin_i.value
     p_diff = bin_i1.value - bin_i.value
@@ -485,6 +504,15 @@ def _find_z(a, b, c):
             break
     return result_root
 
+
+def _update_bounds(hist, analysis):
+    if analysis:
+        hist._min = analysis["minimum"]
+        hist._max = analysis["maximum"]
+    else:
+        if len(hist.bins):
+            hist._min = hist.bins[0]
+            hist._max = hist.bins[-1]
 
 class Bin(object):
     """Histogram bin object.
