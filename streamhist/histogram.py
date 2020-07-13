@@ -39,8 +39,8 @@ References
 from __future__ import absolute_import
 from __future__ import print_function
 
+import math
 import sys
-from math import sqrt
 from bisect import bisect_left, bisect_right
 
 from sortedcontainers import SortedListWithKey
@@ -108,10 +108,8 @@ class StreamHist(object):
         >>> h = StreamHist().update([1, 2, 3])
         """
         self.update_total(count)
-        if self._min is None or self._min > n:
-            self._min = n
-        if self._max is None or self._max < n:
-            self._max = n
+        self._update_min(n)
+        self._update_max(n)
         b = Bin(value=n, count=count)
         if b in self.bins:
             index = self.bins.index(b)
@@ -186,15 +184,23 @@ class StreamHist(object):
         var = self.var()
         if not var:
             return None
-        return sqrt(var)
+        return math.sqrt(var)
 
     def min(self):
         """Return the minimum value in the histogram."""
         return self._min
+    
+    def _update_min(self, n):
+        if self._min is None or self._min > n:
+            self._min = n
 
     def max(self):
         """Return the maximum value in the histogram."""
         return self._max
+
+    def _update_max(self, n):
+        if self._max is None or self._max < n:
+            self._max = n
 
     def trim(self):
         """Merge adjacent bins to decrease bin count to the maximum value.

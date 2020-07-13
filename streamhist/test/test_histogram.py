@@ -20,6 +20,7 @@ import random
 import operator
 from builtins import range
 
+import numpy as np
 import pytest
 from pytest import approx
 
@@ -500,6 +501,39 @@ def test_iterable():
     h = StreamHist().update(nested)
     assert h.total == 15
     assert h.mean() == 8
+
+
+def test_warm_start_with_history():
+    normal_data = np.random.normal(0, 10, 10)
+    h1 = StreamHist(maxbins=8)
+    h1.update(normal_data)
+    d = h1.to_dict()
+    h2 = StreamHist.from_dict(d)
+    assert str(h2) == str(h1)
+
+
+def test_warm_start_without_history():
+    history = {
+        'bins': [
+            {'mean': 1, 'count': 1},
+            {'mean': 2, 'count': 1},
+            {'mean': 3, 'count': 1}
+        ],
+        'info': {
+            'missing_count': 0,
+            'maxbins': 4,
+            'weighted': False,
+            'freeze': None
+        }
+    }
+
+    h = StreamHist.from_dict(history)
+    assert h.min().value == 1
+    assert h.max().value == 3
+    assert h.mean() == 2.0
+    assert h.stdDev() == 0.816496580927726
+    assert h.total == 3
+    assert h.missing_count == 0
 
 
 # def test_print_counts():
