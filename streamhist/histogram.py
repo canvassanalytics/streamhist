@@ -511,8 +511,8 @@ def _update_bounds(hist, analysis):
         hist._max = analysis["maximum"]
     else:
         if len(hist.bins):
-            hist._min = hist.bins[0]
-            hist._max = hist.bins[-1]
+            hist._min = hist.bins[0].value
+            hist._max = hist.bins[-1].value
 
 class Bin(object):
     """Histogram bin object.
