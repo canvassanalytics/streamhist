@@ -528,8 +528,8 @@ def test_warm_start_without_history():
     }
 
     h = StreamHist.from_dict(history)
-    assert h.min().value == 1
-    assert h.max().value == 3
+    assert h.min() == 1
+    assert h.max() == 3
     assert h.mean() == 2.0
     assert h.stdDev() == 0.816496580927726
     assert h.total == 3
