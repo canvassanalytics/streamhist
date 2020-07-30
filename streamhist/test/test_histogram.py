@@ -414,11 +414,11 @@ def test_weighted():
 
 
 def test_missing():
-    data = [1, None, 1, 4, 6]
+    data = [1, None, 1, 4, 6, float("nan")]
     h = StreamHist(maxbins=2)
     for p in data:
         h.update(p)
-    assert h.missing_count == 1
+    assert h.missing_count == 2
     assert len(h.bins) == 2
     assert h.bins[0][0] == 1 and h.bins[1][0] == 5
 
