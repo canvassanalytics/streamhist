@@ -81,6 +81,10 @@ class StreamHist(object):
             for p in n:
                 self.update(p, count)  # Count is assumed to apply for all
         else:
+            if math.isnan(n):
+                # We simply keep a count of the number of missing values
+                self.missing_count += count
+                return self
             self.insert(n, count)
         return self.trim()
 
