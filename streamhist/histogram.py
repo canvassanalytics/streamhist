@@ -245,9 +245,7 @@ class StreamHist(object):
         analysis = dict(mean=self.mean(),
                         maximum=self.max(),
                         minimum=self.min(),
-                        stdDev=self.stdDev(),
-                        countMissing=self.missing_count,
-                        countTotal=self.total)
+                        stdDev=self.stdDev())
         return dict(bins=bins, info=info, analysis=analysis)
 
     @classmethod
